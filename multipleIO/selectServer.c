@@ -56,6 +56,7 @@ int main()
     }
 
     fd_set readSet;
+
     /*清空集合*/
     FD_ZERO(&readSet);
 
@@ -63,7 +64,10 @@ int main()
     FD_SET(sockfd, &readSet);
 
     int maxfd = sockfd;
-
+    /*备份*/
+    fd_set accordSet;
+    /*清空集合*/
+    FD_ZERO(&accordSet);
 #if 0
     struct timeval timeValue;
     bzero(&timeValue, sizeof(timeValue));
@@ -72,7 +76,9 @@ int main()
 #endif
     while (1)
     {
-        ret = select(maxfd + 1, &readSet, NULL, NULL, NULL);
+        /*备份读集合*/
+        accordSet = readSet;
+        ret = select(maxfd + 1, &accordSet, NULL, NULL, NULL);
         /*如果timeout参数不为NULL ，这里有三种情况，select出错，超时，接收到io请求*/
         if (ret == -1)
         {
@@ -80,7 +86,7 @@ int main()
             break;
         }
         /*如果sockfd在readSet集合里面*/
-        if (FD_ISSET(sockfd, &readSet))
+        if (FD_ISSET(sockfd, &accordSet))
         {
             int acceptfd = accept(sockfd, NULL, NULL);
             if (acceptfd == -1)
@@ -96,10 +102,10 @@ int main()
             /*程序到这里说明可能有通信*/
             for (int idx = 0; idx <= maxfd; idx++)
             {
-                if (idx != sockfd && FD_ISSET(idx, &readSet))
+                if (idx != sockfd && FD_ISSET(idx, &accordSet))
                 {
                     /*程序到这里一定有通信*/
-                    char *buffer[BUFFER_SIZE];
+                    char buffer[BUFFER_SIZE];
                     bzero(buffer, sizeof(buffer));
                     int readBytes = read(idx, buffer, sizeof(buffer));
                     if (readBytes < 0)
@@ -115,7 +121,7 @@ int main()
                     else if (readBytes == 0)
                     {
                         /*客户端断开*/
-                        printf("客户端断开连接");
+                        printf("客户端断开连接\n");
                         /*将该通信句柄从监听的集合中删除*/
                         FD_CLR(idx, &readSet);
                         close(idx);
